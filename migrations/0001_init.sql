@@ -1,8 +1,6 @@
--- Canonical jobs schema.
--- Apply:  psql "$DATABASE_URL" -f src/dublin_jobs/db/schema.sql
--- Safe to re-run.
+-- 0001 initial schema
 
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE jobs (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     -- Source identity (unique together; drives idempotent upserts)

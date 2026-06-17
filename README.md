@@ -21,6 +21,10 @@ pip install -e ".[dev]"
 
 # 3. Configure secrets
 cp .env.example .env        # then fill in real values
+
+# 4. Start Postgres and apply migrations
+docker compose up -d
+python -m dublin_jobs.db.migrate
 ```
 
 ## Status

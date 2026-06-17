@@ -3,10 +3,10 @@
 Concise living checklist. Full rationale: [Project_dublin.md](Project_dublin.md).
 Legend: ✅ done · 🔨 in progress · ⬜ not started
 
-## Phase 0 — Foundations 🔨
+## Phase 0 — Foundations ✅
 Goal: a safe, reproducible project skeleton.
 - ✅ **0.1** Repo layout, venv (py3.12), `.gitignore`, `.env.example`, first commit
-- ⬜ **0.2** Postgres `dublin_jobs` DB + `jobs` table (dedup key + reserved enrichment columns)
+- ✅ **0.2** Dockerized Postgres (`dublin_jobs`) + `jobs` table (unique key + reserved enrichment columns)
 
 Concepts: project structure, secrets hygiene, relational schema design.
 Done when: `pip install -e .` works and the `jobs` table exists locally.
