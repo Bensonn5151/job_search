@@ -27,6 +27,9 @@ data/
 *.db
 *.dump
 
+# ─── Private notes (build journal, personal job-hunt KPIs — never public) ───
+private/
+
 # ─── OS / editor cruft ───
 .DS_Store
 .idea/

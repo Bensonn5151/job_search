@@ -1,0 +1,25 @@
+# Local-dev Postgres (pgvector image, so embeddings work without extra setup).
+# Credentials here are local-dev only, not secrets; real secrets stay in .env.
+#
+#   docker compose up -d      start
+#   docker compose down       stop   (add -v to also remove the data volume)
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: dublin_jobs_db
+    environment:
+      POSTGRES_USER: dublin
+      POSTGRES_PASSWORD: dublin
+      POSTGRES_DB: dublin_jobs
+    ports:
+      - "5433:5432"        # 5433 on host to avoid the existing local Postgres on 5432
+    volumes:
+      - dublin_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dublin -d dublin_jobs"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dublin_pgdata:
