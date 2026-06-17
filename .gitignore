@@ -1,0 +1,33 @@
+# ─── Secrets & local config (NEVER commit) ───
+.env
+.env.*
+!.env.example
+
+# ─── Python ───
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ─── Caches / tooling ───
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ─── Data dumps (job data stays out of the public repo) ───
+data/
+*.csv
+*.json.gz
+*.sqlite
+*.db
+*.dump
+
+# ─── OS / editor cruft ───
+.DS_Store
+.idea/
+.vscode/

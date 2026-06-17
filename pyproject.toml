@@ -1,0 +1,24 @@
+[project]
+name = "dublin-jobs"
+version = "0.1.0"
+description = "Multi-source job scraper + AI enrichment for Dublin, Ireland (personal job-hunt tool)."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",            # HTTP client for calling REST APIs (Phase 1)
+    "pydantic>=2.7",          # typed data models + validation
+    "pydantic-settings>=2.3", # load typed config straight from .env
+    "psycopg[binary]>=3.2",   # Postgres driver
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

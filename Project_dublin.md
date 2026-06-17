@@ -1,0 +1,142 @@
+# Project Dublin — Multi-Source Job Scraper (Dublin, Ireland)
+
+## Project profile
+- **Purpose:** personal job-hunt tool for a non-EU MSc AI grad who will need visa sponsorship.
+- **Mode:** code-along — we build together, I teach the concepts at each step, we discuss as we go.
+- **Public:** lives on GitHub (public repo) → code is public, **data and secrets are not**.
+- **Language:** Python.
+- **Scope:** all four source tiers, built **incrementally** (APIs first, dynamic scraping last).
+
+---
+
+## 0. Contrarian framing: don't "scrape" most of it
+
+The smart architecture is **API-first + AI enrichment + targeted scraping only where there's no API.**
+Scraping LinkedIn/Indeed directly is legally hostile and a maintenance treadmill. Pull clean data from
+APIs/aggregators; spend effort on the *enrichment* layer (where the AI value and differentiation live).
+
+---
+
+## 1. Legal & GDPR (you're in the EU — non-negotiable)
+
+| Concern | What to do |
+|---|---|
+| **Terms of Service** | LinkedIn & Indeed ban scraping (LinkedIn litigates). Avoid direct scraping; use partner APIs or skip. |
+| **robots.txt** | Respect it. Disallowed paths = don't crawl. |
+| **GDPR (Irish DPC enforces hard)** | Job posts contain personal data (recruiter names/emails). Personal use → keep minimal & private; don't build a public service around the data. Strip recruiter PII unless truly needed. |
+| **Public GitHub repo** | **Never commit:** the database, scraped data dumps, or API keys. Use `.gitignore` + a `.env` file (commit a `.env.example` instead). |
+| **Copyright** | JDs are copyrighted. Store metadata + link out; don't republish full JDs. |
+| **Rate / load** | Be polite (throttle, backoff, cache). Hammering a site can cross into "misuse." |
+
+---
+
+## 2. Source tiers (we build all four, in this order)
+
+- **Tier 1 — Official APIs (first):** Adzuna (excellent Ireland coverage, free tier), Jooble, Careerjet, Reed (UK/IE), The Muse.
+- **Tier 2 — ATS JSON endpoints (gold):** Greenhouse, Lever, Ashby, Workday, SmartRecruiters expose JSON feeds (e.g. `boards-api.greenhouse.io/...`). Curate Dublin tech employers (Stripe, Intercom, Workday, HubSpot, AWS, Google, Meta, Irish startups).
+- **Tier 3 — Irish boards (HTML):** IrishJobs.ie, Jobs.ie, JobsIreland (state service), Enterprise Ireland / IDA company lists.
+- **Tier 4 — Dynamic / anti-bot sites (last, only if no API):** Playwright where genuinely needed. **LinkedIn/Indeed stay off-limits** for direct scraping.
+
+---
+
+## 3. Core technical considerations
+
+- **Normalization schema (the real work):** unify into one shape — `title, company, location, remote_policy, salary_min/max, seniority, posted_date, source, url, description, tech_stack[], visa_signal`. ~50% of the project.
+- **Deduplication:** same job on many sources. Dedup by `(normalized_title + company + location)`, then **embedding similarity** for near-dupes.
+- **Freshness / expiry:** detect & drop filled/expired posts (recheck URLs; track first/last seen).
+- **Anti-bot reality:** dynamic sites need **Playwright**; many sit behind Cloudflare. Brittle — prefer APIs.
+- **Scheduling:** start with cron / **GitHub Actions**; graduate to **Prefect/Airflow** if it grows.
+- **Storage:** **Postgres + pgvector** (relational + embeddings in one). Optional **Meilisearch/Typesense** for search UI.
+- **Monitoring:** scrapers silently break. Alert on "source X returned 0 jobs today."
+- **Politeness/robustness:** per-domain rate limits, exponential backoff, retries, caching, realistic headers.
+- **Tooling:** **httpx + Pydantic** (APIs), **BeautifulSoup** (HTML), **Playwright** (dynamic), optionally **Scrapy** or **crawl4ai/Firecrawl** (LLM-ready markdown).
+
+---
+
+## 4. Where AI genuinely helps (and where it's a trap)
+
+**High value:**
+- **LLM extraction** of structured fields from messy JDs. Use **structured outputs / JSON schema**, run only on new/changed jobs, use a **cheap model (Claude Haiku)**.
+- **Embeddings:** semantic dedup, "find similar jobs," and **CV matching** (embed profile → rank by cosine → LLM-rerank top 50).
+- **Classification/tagging:** category, seniority, tech stack — and the visa feature below.
+
+**Trap / overkill:**
+- **Fully agentic browsing** (agent clicking each site) — slow, expensive, flaky. Use deterministic fetch + LLM *parse*, not LLM *navigation*.
+- Running an LLM on **every job every run** — cache; enrich deltas only.
+
+---
+
+## 5. The killer feature (worth more than the scraper itself)
+
+Non-EU path: Stamp 2 → **Graduate scheme (Stamp 1G, up to 24 months)** → **Critical Skills / General Employment Permit**.
+Goal: a feed of *"Dublin AI/ML jobs that realistically lead to a Critical Skills Permit"* — it **solves the real problem** and is a **novel portfolio feature**. **Highest-leverage thing in the build.**
+
+### 5.1 It's three signals, not one NLP problem
+
+The question "will this job sponsor me / qualify for a Critical Skills Permit?" decomposes into three sub-problems with very different right tools. Don't collapse them into one text classifier.
+
+| Signal | Where the truth lives | Right tool |
+|---|---|---|
+| **Critical Skills eligibility** | The official **CSOL** (occupation list) + a **salary threshold** (~€38k on-list / ~€64k off-list — *these change yearly*) | **Rules + lookup.** Map role title → occupation, compare salary to threshold. A rulebook, not something to learn. |
+| **Does this employer sponsor?** | Mostly an **employer property**, not the JD. Ireland's DETE publishes employment-permit data; known sponsors are a list. | **Structured data / allow-list.** A company that sponsored before beats any sentence in the JD. |
+| **Does the JD text signal sponsorship?** | The free text — **and its negation** | This is the only real **NLP** part. |
+
+### 5.2 Why naive approaches fail
+
+- **Keyword-only is dangerous for the decision.** Good for *recall* (flag candidates), bad for *precision* because of negation/paraphrase: *"unable to provide visa sponsorship"* (keyword present, means the opposite), *"must already be authorized to work in Ireland"* / *"EU/EEA applicants only"* (strong **negatives**, no keyword overlap). Track **negative** keywords as deliberately as positive ones.
+- **Training a classifier first is a cold-start trap.** A "small" classifier needs hundreds of balanced, hand-labeled examples you don't have. Label them by your keywords and it just relearns the keywords. ML without labels = the trap §4 warns about.
+
+### 5.3 Architecture — cheapest-first cascade (rules → LLM → distill)
+
+```
+JD + employer + salary
+  └─ L1 RULES (free, instant)
+       • CSOL lookup + salary threshold (config)      ← deterministic eligibility
+       • known-sponsor employer list                  ← highest-precision signal
+       • keyword recall pass (positive AND negative)  ← flags candidates, doesn't decide
+  └─ L2 LLM (Claude Haiku, structured output)         ← only on NEW/CHANGED jobs, cached
+       → {signal: pos|neutral|neg, confidence, evidence_span, csol_guess}
+         handles negation & paraphrase the regex can't
+  └─ L3 LEARNED classifier (LATER, optional)          ← only once labels are a free byproduct
+       distill the LLM to cut cost at scale; a personal-scale tool may never need it
+```
+
+Labels accumulate for free: every LLM label you later confirm/correct (you applied, you found out) = one training example. Train L3 only when the data already exists and cost justifies it — not before.
+
+### 5.4 Implications for earlier phases (cheap now, saves a migration later)
+
+- **Phase 1 schema** reserves nullable enrichment columns: `sponsorship_signal`, `sponsorship_confidence`, `sponsorship_evidence`, `csol_eligible`, plus `enriched_at` (so we enrich **deltas only**).
+- Plan an **`employers` table** with an `is_known_sponsor` flag (the employer signal is structured, not text).
+- Keep the **CSOL list + salary thresholds as config/data**, never hardcoded — they change yearly.
+
+---
+
+## 6. Incremental roadmap (each phase = working software + concepts learned)
+
+| Phase | Build | Concepts you learn |
+|---|---|---|
+| **0 — Foundations** | Repo, venv, `.env`/secrets, `.gitignore`, project layout | Python project structure, git hygiene, secrets management |
+| **1 — Tier 1 APIs** | Adzuna → normalize → store in Postgres | REST APIs, pagination, rate limits, Pydantic models, SQL basics |
+| **2 — Tier 2 ATS + dedup** | Greenhouse/Lever JSON feeds; unify schema; dedup | JSON endpoints, schema unification, dedup strategies |
+| **3 — AI enrichment** | LLM extraction (Haiku, structured output), embeddings, pgvector, CV matching, **visa classifier** | Structured outputs, embeddings, vector search, prompt design, cost control |
+| **4 — Tier 3 Irish boards** | IrishJobs/Jobs.ie/JobsIreland via HTML parsing | BeautifulSoup, HTML parsing, politeness/throttling |
+| **5 — Tier 4 dynamic sites** | Playwright for anti-bot pages, only where legal/needed | Headless browsers, anti-bot, when NOT to scrape |
+| **6 — Automation + UI** | GitHub Actions scheduling, monitoring, expiry, Streamlit UI with filters | Cron/CI, observability, simple front end |
+
+**Stack:** Python · httpx/Scrapy (+Playwright where needed) · Postgres+pgvector · Claude Haiku for extraction · embedding model · Streamlit front end · GitHub Actions scheduling.
+
+---
+
+## 7. Biggest pitfalls
+
+- Underestimating **normalization + dedup** (the unglamorous 70%).
+- Scraping LinkedIn/Indeed → blocked/banned. Start API-first.
+- Burning LLM budget by enriching everything every run.
+- Ignoring **scraper rot** — build breakage alerts from day one.
+- Committing data/keys to the public repo — `.gitignore` from commit #1.
+
+---
+
+## 8. Next step
+Start **Phase 0 + Phase 1**: scaffold the repo (layout, `.env.example`, `.gitignore`, Postgres schema)
+and pull the first real Dublin jobs from the Adzuna API into the database.
