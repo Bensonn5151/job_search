@@ -140,3 +140,30 @@ Labels accumulate for free: every LLM label you later confirm/correct (you appli
 ## 8. Next step
 Start **Phase 0 + Phase 1**: scaffold the repo (layout, `.env.example`, `.gitignore`, Postgres schema)
 and pull the first real Dublin jobs from the Adzuna API into the database.
+
+---
+
+## 9. Success metrics / KPIs (what makes this build run *effortlessly*)
+
+These are the engineering success factors — the qualities/features that keep the project low-maintenance,
+hard to silently break, and cheap to extend. "Effortless" = **idempotency + observability + API-first**.
+Ranked by leverage.
+
+| # | KPI / success factor | Measurable indicator | Why it = effortless | Phase |
+|---|---|---|---|---|
+| 1 | **Normalization quality** | % jobs with all core fields correctly populated; % needing manual fix (→0) | Clean unified data makes filtering, dedup, UI, and the visa feature trivial. ~50–70% of the value. | 1 |
+| 2 | **Idempotent / re-runnable pipeline** | re-run adds **0** duplicate rows; never corrupts state | Run anytime, retry safely, schedule without fear. The core effortlessness property. | 1 |
+| 3 | **Dedup accuracy** | false-merge rate ≈ 0; missed-dupe rate low | Same job on N sources → 1 row; feed stays clean as sources grow. | 2 |
+| 4 | **Breakage detection / observability** | time-to-detect a zero/broken source ≤ 1 run; **0 silent failures** | It shouts when something breaks instead of quietly returning nothing. | 1→6 |
+| 5 | **API-first resilience** | % of data from stable APIs/JSON vs brittle HTML (higher = better) | APIs break far less than HTML → maintenance near zero. | 1–2 |
+| 6 | **Politeness & robustness** | 429/block rate ≈ 0; transient errors auto-recovered (retry/backoff) | Survives flaky networks + rate limits unattended. | 1→4 |
+| 7 | **Deltas-only enrichment + caching** | $/run & runtime stay ~flat as DB grows; % re-enriched ≈ 0 | AI layer stays cheap and fast forever; cost doesn't creep. | 3 |
+| 8 | **Config-driven sources/location** | add a source or change city with **0 code changes** | Effortless extensibility (location = config, not hardcoded). | 1→ |
+| 9 | **Freshness / expiry** | % expired jobs still shown ≈ 0; median job age low | Self-cleaning feed — no dead listings. | 3→6 |
+| 10 | **Visa-signal trustworthiness** | sponsorship/CSOL precision & recall vs spot-checks | The differentiator only matters if you can trust it. | 3 |
+| 11 | **Automation** | runs on schedule with **0 manual steps** | Works while you sleep. | 6 |
+
+**Earliest, highest-leverage three:** #1 normalization, #2 idempotency, #4 breakage detection — nail these in Phase 1.
+
+> Note: *personal job-hunt funnel* metrics (applications → interviews → offers) are out of scope here and
+> stay **private** (Notion / `private/`), never in this public repo.
