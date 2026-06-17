@@ -30,12 +30,23 @@ APIs/aggregators; spend effort on the *enrichment* layer (where the AI value and
 
 ---
 
-## 2. Source tiers (we build all four, in this order)
+## 2. Source tiers (built incrementally, API-first)
 
-- **Tier 1 — Official APIs (first):** Adzuna (excellent Ireland coverage, free tier), Jooble, Careerjet, Reed (UK/IE), The Muse.
-- **Tier 2 — ATS JSON endpoints (gold):** Greenhouse, Lever, Ashby, Workday, SmartRecruiters expose JSON feeds (e.g. `boards-api.greenhouse.io/...`). Curate Dublin tech employers (Stripe, Intercom, Workday, HubSpot, AWS, Google, Meta, Irish startups).
-- **Tier 3 — Irish boards (HTML):** IrishJobs.ie, Jobs.ie, JobsIreland (state service), Enterprise Ireland / IDA company lists.
+Prioritise sources by **reliability × sponsorship-yield**, not raw coverage. For a non-EU
+sponsorship seeker a small set of high-yield, low-rot sources beats exhaustive coverage.
+
+- **Tier 1 — Official APIs (start here):** Adzuna (excellent Ireland coverage, free tier), Jooble, Careerjet, Reed (UK/IE), The Muse. Clean, documented, stable.
+- **Tier 1.5 — Public / semi-state (Ireland-specific, large in Dublin):**
+  - **Universities (TCD, UCD, DCU)** — *high value:* research/academic + professional roles are often Critical-Skills-eligible and universities actively sponsor non-EU staff. Usually **CoreHR (Access Group)** → tailored HTML/feed parsing.
+  - **PublicJobs.ie** (civil service, HSE, Dublin City Council) — huge, but most roles require Irish/EU/EEA citizenship or residency, so **low visa-yield:** index it and let the visa classifier mark it, but don't prioritise the crawl.
+- **Tier 2a — Stable ATS JSON (gold):** Greenhouse, Lever, Ashby, SmartRecruiters expose near-uniform JSON feeds (e.g. `boards-api.greenhouse.io/...`). Best ROI, least breakage. Curate Dublin tech employers (Stripe, Intercom, HubSpot, AWS, Google, Meta, Irish startups).
+- **Tier 2b — Brittle per-tenant JSON (valuable, higher maintenance):** unlocks banking, aircraft leasing, pharma, big enterprise.
+  - **Workday** — per-tenant `…/wday/cxs/…` JSON (POST), may need session headers; structure varies per company.
+  - **SuccessFactors (SAP) / Taleo (Oracle)** — classic Dublin enterprise (AIB, Bank of Ireland, ESB, Ryanair). Career sites vary per customer; typically OData + API key or HTML parsing. Lower priority, per-employer upkeep.
+- **Tier 3 — Irish boards (HTML):** IrishJobs.ie, Jobs.ie, Silicon Republic Careers (small but curated).
 - **Tier 4 — Dynamic / anti-bot sites (last, only if no API):** Playwright where genuinely needed. **LinkedIn/Indeed stay off-limits** for direct scraping.
+
+**Employer-discovery feeds (cross-cutting — not job listings):** Techireland.org, Scale Ireland, Enterprise Ireland / IDA company lists. These map *which* Dublin startups/scaleups exist → feed the **curated employer list** for Tier 2 and seed the **known-sponsor list** that powers the visa cascade's L1 rules (§5). Modelled as an `EmployerSource` sibling of the `Source` interface — no architecture change.
 
 ---
 
