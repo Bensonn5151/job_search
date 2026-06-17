@@ -6,8 +6,8 @@ ATS feeds + select boards), normalize them into one schema, enrich with AI (visa
 
 > Public repo: **code is public, data and secrets are not.** Never commit `.env` or job data.
 
-See [Project_dublin.md](Project_dublin.md) for the full design and roadmap (incl. the
-visa-sponsorship cascade in §5 — the killer feature).
+See [Project_dublin.md](Project_dublin.md) for the full design and the reasoning behind the
+visa feature.
 
 ## Setup
 

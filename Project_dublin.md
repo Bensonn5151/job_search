@@ -1,180 +1,231 @@
-# Project Dublin — Multi-Source Job Scraper (Dublin, Ireland)
+# Project Dublin — A Dublin Job Search Tool
 
-## Project profile
-- **Purpose:** personal job-hunt tool for a non-EU MSc AI grad who will need visa sponsorship.
-- **Mode:** code-along — we build together, I teach the concepts at each step, we discuss as we go.
-- **Public:** lives on GitHub (public repo) → code is public, **data and secrets are not**.
-- **Language:** Python.
-- **Scope:** all four source tiers, built **incrementally** (APIs first, dynamic scraping last).
+A personal tool to help with a job hunt in Dublin, Ireland. It gathers job postings from
+several sources, stores them in one consistent format, and uses AI to highlight the roles
+that are most useful to a non-EU graduate who needs visa sponsorship.
 
----
+The project is built step by step. At each step we build working software and learn the
+ideas behind it. The code lives in a public GitHub repository: the code is public, but the
+job data and any secrets are not.
 
-## 0. Contrarian framing: don't "scrape" most of it
+## 1. Who this is for
 
-The smart architecture is **API-first + AI enrichment + targeted scraping only where there's no API.**
-Scraping LinkedIn/Indeed directly is legally hostile and a maintenance treadmill. Pull clean data from
-APIs/aggregators; spend effort on the *enrichment* layer (where the AI value and differentiation live).
+The tool is built for a non-EU graduate with a master's degree in artificial intelligence
+who will need visa sponsorship to work in Ireland. It is a personal tool, written in
+Python, and built to cover several kinds of job sources. We start with official APIs and
+leave the hardest sources for last.
 
----
+## 2. The overall approach: prefer APIs, scrape only when necessary
 
-## 1. Legal & GDPR (you're in the EU — non-negotiable)
+Most of this tool should not "scrape" web pages in the traditional sense. The better design
+is to pull clean data from official APIs and structured feeds wherever possible, and to
+scrape web pages only where there is no other option.
 
-| Concern | What to do |
+Scraping sites like LinkedIn and Indeed directly is against their terms of service and
+requires constant maintenance as the sites change. Instead, we pull clean data from APIs
+and aggregators, and we spend our effort on the part that adds real value: the layer that
+enriches each job with useful information, especially the visa signal.
+
+## 3. Legal and privacy
+
+Because this project runs in the EU and handles job postings, a few rules matter.
+
+| Concern | What we do |
 |---|---|
-| **Terms of Service** | LinkedIn & Indeed ban scraping (LinkedIn litigates). Avoid direct scraping; use partner APIs or skip. |
-| **robots.txt** | Respect it. Disallowed paths = don't crawl. |
-| **GDPR (Irish DPC enforces hard)** | Job posts contain personal data (recruiter names/emails). Personal use → keep minimal & private; don't build a public service around the data. Strip recruiter PII unless truly needed. |
-| **Public GitHub repo** | **Never commit:** the database, scraped data dumps, or API keys. Use `.gitignore` + a `.env` file (commit a `.env.example` instead). |
-| **Copyright** | JDs are copyrighted. Store metadata + link out; don't republish full JDs. |
-| **Rate / load** | Be polite (throttle, backoff, cache). Hammering a site can cross into "misuse." |
+| Terms of service | LinkedIn and Indeed forbid scraping, and LinkedIn enforces this in court. We avoid scraping them directly and use official APIs instead. |
+| robots.txt | We respect it. If a site disallows a path, we do not crawl it. |
+| Data protection (GDPR) | Job postings can contain personal data, such as a recruiter's name or email. We keep data minimal and private, and we remove personal details unless they are truly needed. |
+| Public repository | We never commit the database, scraped data, or API keys. Secrets go in a local `.env` file that is never committed, and a `.env.example` file documents what is needed. |
+| Copyright | Job descriptions are copyrighted. We store a summary and a link to the original rather than republishing the full text. |
+| Being polite | We limit how often we contact each site, slow down when asked, and cache results, so we never overload a source. |
 
----
+## 4. Where the jobs come from
 
-## 2. Source tiers (built incrementally, API-first)
+We gather jobs from several kinds of sources. We favour sources that are dependable and
+likely to lead to a visa-sponsored role, rather than trying to cover everything.
 
-Prioritise sources by **reliability × sponsorship-yield**, not raw coverage. For a non-EU
-sponsorship seeker a small set of high-yield, low-rot sources beats exhaustive coverage.
+**Official job APIs.** These are clean, documented, and stable, so we start here. The main
+one is Adzuna, which covers Ireland well and has a free tier. Others include Jooble,
+Careerjet, Reed, and The Muse.
 
-- **Tier 1 — Official APIs (start here):** Adzuna (excellent Ireland coverage, free tier), Jooble, Careerjet, Reed (UK/IE), The Muse. Clean, documented, stable.
-- **Tier 1.5 — Public / semi-state (Ireland-specific, large in Dublin):**
-  - **Universities (TCD, UCD, DCU)** — *high value:* research/academic + professional roles are often Critical-Skills-eligible and universities actively sponsor non-EU staff. Usually **CoreHR (Access Group)** → tailored HTML/feed parsing.
-  - **PublicJobs.ie** (civil service, HSE, Dublin City Council) — huge, but most roles require Irish/EU/EEA citizenship or residency, so **low visa-yield:** index it and let the visa classifier mark it, but don't prioritise the crawl.
-- **Tier 2a — Stable ATS JSON (gold):** Greenhouse, Lever, Ashby, SmartRecruiters expose near-uniform JSON feeds (e.g. `boards-api.greenhouse.io/...`). Best ROI, least breakage. Curate Dublin tech employers (Stripe, Intercom, HubSpot, AWS, Google, Meta, Irish startups).
-- **Tier 2b — Brittle per-tenant JSON (valuable, higher maintenance):** unlocks banking, aircraft leasing, pharma, big enterprise.
-  - **Workday** — per-tenant `…/wday/cxs/…` JSON (POST), may need session headers; structure varies per company.
-  - **SuccessFactors (SAP) / Taleo (Oracle)** — classic Dublin enterprise (AIB, Bank of Ireland, ESB, Ryanair). Career sites vary per customer; typically OData + API key or HTML parsing. Lower priority, per-employer upkeep.
-- **Tier 3 — Irish boards (HTML):** IrishJobs.ie, Jobs.ie, Silicon Republic Careers (small but curated).
-- **Tier 4 — Dynamic / anti-bot sites (last, only if no API):** Playwright where genuinely needed. **LinkedIn/Indeed stay off-limits** for direct scraping.
+**Public and semi-state employers.** Ireland's public sector is a large employer in Dublin,
+but it splits into two very different groups for our purpose. Universities such as Trinity
+College Dublin, UCD, and DCU are valuable, because their research and academic roles often
+qualify for a Critical Skills permit and these institutions do sponsor non-EU staff. They
+usually run on an older hiring system called CoreHR, which we read by parsing web pages.
+PublicJobs.ie covers the civil service, the health service, and local government. It is
+large, but most of its roles require Irish or EU citizenship or residency and rarely
+sponsor visas, so we record these jobs but do not make them a priority.
 
-**Employer-discovery feeds (cross-cutting — not job listings):** Techireland.org, Scale Ireland, Enterprise Ireland / IDA company lists. These map *which* Dublin startups/scaleups exist → feed the **curated employer list** for Tier 2 and seed the **known-sponsor list** that powers the visa cascade's L1 rules (§5). Modelled as an `EmployerSource` sibling of the `Source` interface — no architecture change.
+**Company hiring systems with clean feeds.** Many companies post their jobs through
+applicant tracking systems that publish the data in a clean, consistent format. Greenhouse,
+Lever, Ashby, and SmartRecruiters are the easiest of these to read and give the best return
+for the effort. We focus on Dublin technology employers such as Stripe, Intercom, HubSpot,
+Amazon, Google, Meta, and Irish startups.
 
----
+**Company hiring systems that are harder to read.** Larger enterprises in banking, aircraft
+leasing, and pharmaceuticals often use Workday, SuccessFactors, or Taleo. These do not
+offer one uniform feed. Each company's setup is slightly different and can require special
+handling, so they are valuable but need more maintenance. Employers like this include AIB,
+Bank of Ireland, ESB, and Ryanair.
 
-## 3. Core technical considerations
+**Irish job boards.** Some Irish boards only publish jobs as ordinary web pages, so we read
+them by parsing HTML. Examples are IrishJobs, Jobs.ie, and Silicon Republic.
 
-- **Normalization schema (the real work):** unify into one shape — `title, company, location, remote_policy, salary_min/max, seniority, posted_date, source, url, description, tech_stack[], visa_signal`. ~50% of the project.
-- **Deduplication:** same job on many sources. Dedup by `(normalized_title + company + location)`, then **embedding similarity** for near-dupes.
-- **Freshness / expiry:** detect & drop filled/expired posts (recheck URLs; track first/last seen).
-- **Anti-bot reality:** dynamic sites need **Playwright**; many sit behind Cloudflare. Brittle — prefer APIs.
-- **Scheduling:** start with cron / **GitHub Actions**; graduate to **Prefect/Airflow** if it grows.
-- **Storage:** **Postgres + pgvector** (relational + embeddings in one). Optional **Meilisearch/Typesense** for search UI.
-- **Monitoring:** scrapers silently break. Alert on "source X returned 0 jobs today."
-- **Politeness/robustness:** per-domain rate limits, exponential backoff, retries, caching, realistic headers.
-- **Tooling:** **httpx + Pydantic** (APIs), **BeautifulSoup** (HTML), **Playwright** (dynamic), optionally **Scrapy** or **crawl4ai/Firecrawl** (LLM-ready markdown).
+**Sites that actively resist automation.** A few sites load their content with JavaScript or
+block automated access. We use a real browser to read these only where there is no API and
+it is legal to do so. LinkedIn and Indeed stay off-limits for direct scraping.
 
----
+**Company directories.** Techireland, Scale Ireland, and the company lists from Enterprise
+Ireland and IDA Ireland are not job boards. They tell us which companies exist in Dublin. We
+use them to decide whose hiring systems to check, and to build a list of employers that are
+known to sponsor visas. That sponsor list feeds the visa feature described in section 7.
 
-## 4. Where AI genuinely helps (and where it's a trap)
+## 5. The technical building blocks
 
-**High value:**
-- **LLM extraction** of structured fields from messy JDs. Use **structured outputs / JSON schema**, run only on new/changed jobs, use a **cheap model (Claude Haiku)**.
-- **Embeddings:** semantic dedup, "find similar jobs," and **CV matching** (embed profile → rank by cosine → LLM-rerank top 50).
-- **Classification/tagging:** category, seniority, tech stack — and the visa feature below.
+A few decisions matter more than the rest.
 
-**Trap / overkill:**
-- **Fully agentic browsing** (agent clicking each site) — slow, expensive, flaky. Use deterministic fetch + LLM *parse*, not LLM *navigation*.
-- Running an LLM on **every job every run** — cache; enrich deltas only.
+**One consistent format.** Every source describes a job differently. The main work of the
+project is converting them all into a single shape with the same fields: title, company,
+location, remote policy, salary range, seniority, posting date, source, link, description,
+technologies, and a visa signal. This conversion is roughly half of the whole project.
 
----
+**Removing duplicates.** The same job often appears on several sources. We first match jobs
+by their title, company, and location, and later use AI text similarity to catch near
+duplicates.
 
-## 5. The killer feature (worth more than the scraper itself)
+**Keeping the list fresh.** Filled or expired jobs should disappear. We track when each job
+was first and last seen, and we re-check links over time.
 
-Non-EU path: Stamp 2 → **Graduate scheme (Stamp 1G, up to 24 months)** → **Critical Skills / General Employment Permit**.
-Goal: a feed of *"Dublin AI/ML jobs that realistically lead to a Critical Skills Permit"* — it **solves the real problem** and is a **novel portfolio feature**. **Highest-leverage thing in the build.**
+**Storage.** We use Postgres, with an extension called pgvector that stores AI embeddings in
+the same database. This keeps the ordinary data and the AI data in one place.
 
-### 5.1 It's three signals, not one NLP problem
+**Monitoring.** Scrapers break quietly. We watch each run and raise an alert if a source
+suddenly returns no jobs.
 
-The question "will this job sponsor me / qualify for a Critical Skills Permit?" decomposes into three sub-problems with very different right tools. Don't collapse them into one text classifier.
+**Tools.** We use httpx and Pydantic for APIs, BeautifulSoup for HTML, and Playwright for
+sites that need a browser.
 
-| Signal | Where the truth lives | Right tool |
+## 6. Where AI genuinely helps
+
+AI is useful in a few specific places.
+
+It can read a messy job description and pull out structured fields. We ask it to return a
+fixed format, run it only on new or changed jobs, and use a cheap model to keep costs down.
+
+It can create text embeddings, which let us find similar jobs, detect near-duplicate
+postings, and match jobs to a CV.
+
+It can classify and tag jobs by category, seniority, technology, and, most importantly,
+visa relevance.
+
+AI is the wrong tool in a couple of places. Having an AI agent click through each website
+is slow, expensive, and unreliable, so we fetch pages in a fixed way and use AI only to
+read them. And running AI over every job on every run wastes money, so we only process what
+has changed.
+
+## 7. The most important feature: finding jobs that lead to a visa
+
+The goal of this feature is a list of Dublin jobs in AI, machine learning, data, and
+software that realistically lead to an Irish Critical Skills Employment Permit. For a non-EU
+graduate, this solves the real problem and is a strong portfolio feature.
+
+A short note on the immigration path. A graduate on a Stamp 2 student visa can move to the
+graduate scheme (Stamp 1G), which allows up to 24 months to find work, and then to a
+Critical Skills or General Employment Permit.
+
+### It is really three questions, not one
+
+It is tempting to treat this as a single text-classification problem and train one model.
+That is the wrong approach, because the question breaks into three parts, each best solved a
+different way.
+
+The first question is whether the role qualifies for a Critical Skills permit. This is
+decided by an official list of eligible occupations and a salary threshold, around €38,000
+for roles on the list and around €64,000 otherwise. These figures change each year. This is
+a lookup against rules, not something to learn.
+
+The second question is whether the employer sponsors visas. This is mostly a fact about the
+employer, not the job description. A company that has sponsored before is a stronger signal
+than any sentence in a posting, so a list of known sponsors is the most reliable input.
+
+The third question is whether the job description itself signals sponsorship. This is the
+only part that is genuinely a language problem, and it is harder than it looks because of
+negatives. "We are unable to offer visa sponsorship" contains the words but means the
+opposite, and "candidates must already have the right to work in Ireland" is a negative
+signal with none of the obvious keywords.
+
+### Why not just train a classifier first
+
+Training a model needs hundreds of hand-labelled examples that we do not have. If we label
+them using keywords, the model simply relearns the keywords. The better path is to start
+with rules and AI, and to train a model only later, once labelled examples have built up for
+free as a by-product of the AI's own decisions and our corrections.
+
+### How it works: cheapest checks first
+
+We run the checks in order, from cheapest to most expensive.
+
+First, simple rules. We look up whether the occupation and salary qualify for a permit, we
+check the employer against the known-sponsor list, and we scan the description for both
+positive and negative wording. The keyword scan only flags jobs for a closer look; it does
+not make the final decision.
+
+Second, an AI reading. For the jobs that the rules cannot settle, we ask a cheap AI model
+(Claude Haiku) to read the description and return a clear verdict: positive, neutral, or
+negative, along with its confidence, the exact wording it relied on, and a guess at permit
+eligibility. We run this only on new or changed jobs, and we cache the result.
+
+Third, and only later, a trained model. Once the AI's labelled decisions and our corrections
+have built up, we can train a small model to replace the AI and reduce cost. A
+personal-scale tool may never need this step.
+
+### What this means for earlier work
+
+A few cheap decisions now save effort later. The jobs table already includes empty columns
+for the sponsorship signal, the confidence, the supporting wording, permit eligibility, and
+the time of enrichment, so we can fill them in later and process only the jobs that have
+changed. We also plan a separate table of employers with a flag for known sponsors. The
+occupation list and salary thresholds are kept as data we can update, not values written
+into the code, because they change each year.
+
+## 8. The biggest risks
+
+The work of converting and de-duplicating jobs is larger and less glamorous than it looks,
+and it is easy to underestimate. Scraping LinkedIn and Indeed leads to being blocked, so we
+start with APIs. Running AI on everything on every run wastes money. Scrapers break quietly,
+so we build alerts from the start. And committing data or keys to a public repository is a
+real risk, which is why the `.gitignore` file is in place from the very first commit.
+
+## 9. Building it in phases
+
+The project is built in phases, and each one delivers working software. The detailed,
+up-to-date plan is in PHASES.md. In short, the first phase sets up the foundations, the
+next adds official APIs, then company hiring systems and duplicate removal, then the AI
+enrichment and the visa feature, then Irish boards and sites that need a browser, and
+finally automation and a simple web interface.
+
+## 10. How we measure success
+
+These are the qualities that keep the project easy to run and hard to break. The aim is a
+system that runs by itself, tells us when something goes wrong, and is cheap to extend.
+
+| What we track | How we measure it | Why it matters |
 |---|---|---|
-| **Critical Skills eligibility** | The official **CSOL** (occupation list) + a **salary threshold** (~€38k on-list / ~€64k off-list — *these change yearly*) | **Rules + lookup.** Map role title → occupation, compare salary to threshold. A rulebook, not something to learn. |
-| **Does this employer sponsor?** | Mostly an **employer property**, not the JD. Ireland's DETE publishes employment-permit data; known sponsors are a list. | **Structured data / allow-list.** A company that sponsored before beats any sentence in the JD. |
-| **Does the JD text signal sponsorship?** | The free text — **and its negation** | This is the only real **NLP** part. |
+| Quality of the conversion to one format | The share of jobs with every key field filled in correctly, and how many need manual fixing | Clean, consistent data makes filtering, duplicate removal, the web page, and the visa feature simple. |
+| Safe re-runs | Running the pipeline again adds no duplicate rows and never corrupts data | We can run it any time and retry safely, which is what makes the tool effortless to operate. |
+| Accurate duplicate removal | We never merge two different jobs, and we rarely miss a true duplicate | The list stays clean as the number of sources grows. |
+| Quick detection of breakages | A broken or empty source is noticed within one run, with no silent failures | The tool tells us when something breaks instead of quietly going stale. |
+| Reliance on stable sources | The share of data that comes from stable APIs rather than fragile web pages | APIs break far less often, so maintenance stays low. |
+| Politeness and resilience | Few or no rate-limit or block responses, and automatic recovery from temporary errors | The tool keeps working on flaky networks without supervision. |
+| Controlled AI cost | The cost and run time stay roughly flat as the database grows, and we rarely re-process a job | The AI step stays affordable as the data grows. |
+| Easy to extend | We can add a source or change the city by editing configuration, not code | New sources are quick to add. |
+| Fresh listings | Few expired jobs remain visible, and the typical job is recent | The list stays useful and current. |
+| Trustworthy visa signal | The visa and permit labels agree with our own spot checks | The headline feature is only useful if we can trust it. |
+| Hands-off operation | The pipeline runs on a schedule with no manual steps | It keeps working while we are not looking. |
 
-### 5.2 Why naive approaches fail
+The three to get right first are the conversion to one format, safe re-runs, and quick
+breakage detection. These are set up in the first phase that loads real data.
 
-- **Keyword-only is dangerous for the decision.** Good for *recall* (flag candidates), bad for *precision* because of negation/paraphrase: *"unable to provide visa sponsorship"* (keyword present, means the opposite), *"must already be authorized to work in Ireland"* / *"EU/EEA applicants only"* (strong **negatives**, no keyword overlap). Track **negative** keywords as deliberately as positive ones.
-- **Training a classifier first is a cold-start trap.** A "small" classifier needs hundreds of balanced, hand-labeled examples you don't have. Label them by your keywords and it just relearns the keywords. ML without labels = the trap §4 warns about.
-
-### 5.3 Architecture — cheapest-first cascade (rules → LLM → distill)
-
-```
-JD + employer + salary
-  └─ L1 RULES (free, instant)
-       • CSOL lookup + salary threshold (config)      ← deterministic eligibility
-       • known-sponsor employer list                  ← highest-precision signal
-       • keyword recall pass (positive AND negative)  ← flags candidates, doesn't decide
-  └─ L2 LLM (Claude Haiku, structured output)         ← only on NEW/CHANGED jobs, cached
-       → {signal: pos|neutral|neg, confidence, evidence_span, csol_guess}
-         handles negation & paraphrase the regex can't
-  └─ L3 LEARNED classifier (LATER, optional)          ← only once labels are a free byproduct
-       distill the LLM to cut cost at scale; a personal-scale tool may never need it
-```
-
-Labels accumulate for free: every LLM label you later confirm/correct (you applied, you found out) = one training example. Train L3 only when the data already exists and cost justifies it — not before.
-
-### 5.4 Implications for earlier phases (cheap now, saves a migration later)
-
-- **Phase 1 schema** reserves nullable enrichment columns: `sponsorship_signal`, `sponsorship_confidence`, `sponsorship_evidence`, `csol_eligible`, plus `enriched_at` (so we enrich **deltas only**).
-- Plan an **`employers` table** with an `is_known_sponsor` flag (the employer signal is structured, not text).
-- Keep the **CSOL list + salary thresholds as config/data**, never hardcoded — they change yearly.
-
----
-
-## 6. Incremental roadmap (each phase = working software + concepts learned)
-
-| Phase | Build | Concepts you learn |
-|---|---|---|
-| **0 — Foundations** | Repo, venv, `.env`/secrets, `.gitignore`, project layout | Python project structure, git hygiene, secrets management |
-| **1 — Tier 1 APIs** | Adzuna → normalize → store in Postgres | REST APIs, pagination, rate limits, Pydantic models, SQL basics |
-| **2 — Tier 2 ATS + dedup** | Greenhouse/Lever JSON feeds; unify schema; dedup | JSON endpoints, schema unification, dedup strategies |
-| **3 — AI enrichment** | LLM extraction (Haiku, structured output), embeddings, pgvector, CV matching, **visa classifier** | Structured outputs, embeddings, vector search, prompt design, cost control |
-| **4 — Tier 3 Irish boards** | IrishJobs/Jobs.ie/JobsIreland via HTML parsing | BeautifulSoup, HTML parsing, politeness/throttling |
-| **5 — Tier 4 dynamic sites** | Playwright for anti-bot pages, only where legal/needed | Headless browsers, anti-bot, when NOT to scrape |
-| **6 — Automation + UI** | GitHub Actions scheduling, monitoring, expiry, Streamlit UI with filters | Cron/CI, observability, simple front end |
-
-**Stack:** Python · httpx/Scrapy (+Playwright where needed) · Postgres+pgvector · Claude Haiku for extraction · embedding model · Streamlit front end · GitHub Actions scheduling.
-
----
-
-## 7. Biggest pitfalls
-
-- Underestimating **normalization + dedup** (the unglamorous 70%).
-- Scraping LinkedIn/Indeed → blocked/banned. Start API-first.
-- Burning LLM budget by enriching everything every run.
-- Ignoring **scraper rot** — build breakage alerts from day one.
-- Committing data/keys to the public repo — `.gitignore` from commit #1.
-
----
-
-## 8. Next step
-Start **Phase 0 + Phase 1**: scaffold the repo (layout, `.env.example`, `.gitignore`, Postgres schema)
-and pull the first real Dublin jobs from the Adzuna API into the database.
-
----
-
-## 9. Success metrics / KPIs (what makes this build run *effortlessly*)
-
-These are the engineering success factors — the qualities/features that keep the project low-maintenance,
-hard to silently break, and cheap to extend. "Effortless" = **idempotency + observability + API-first**.
-Ranked by leverage.
-
-| # | KPI / success factor | Measurable indicator | Why it = effortless | Phase |
-|---|---|---|---|---|
-| 1 | **Normalization quality** | % jobs with all core fields correctly populated; % needing manual fix (→0) | Clean unified data makes filtering, dedup, UI, and the visa feature trivial. ~50–70% of the value. | 1 |
-| 2 | **Idempotent / re-runnable pipeline** | re-run adds **0** duplicate rows; never corrupts state | Run anytime, retry safely, schedule without fear. The core effortlessness property. | 1 |
-| 3 | **Dedup accuracy** | false-merge rate ≈ 0; missed-dupe rate low | Same job on N sources → 1 row; feed stays clean as sources grow. | 2 |
-| 4 | **Breakage detection / observability** | time-to-detect a zero/broken source ≤ 1 run; **0 silent failures** | It shouts when something breaks instead of quietly returning nothing. | 1→6 |
-| 5 | **API-first resilience** | % of data from stable APIs/JSON vs brittle HTML (higher = better) | APIs break far less than HTML → maintenance near zero. | 1–2 |
-| 6 | **Politeness & robustness** | 429/block rate ≈ 0; transient errors auto-recovered (retry/backoff) | Survives flaky networks + rate limits unattended. | 1→4 |
-| 7 | **Deltas-only enrichment + caching** | $/run & runtime stay ~flat as DB grows; % re-enriched ≈ 0 | AI layer stays cheap and fast forever; cost doesn't creep. | 3 |
-| 8 | **Config-driven sources/location** | add a source or change city with **0 code changes** | Effortless extensibility (location = config, not hardcoded). | 1→ |
-| 9 | **Freshness / expiry** | % expired jobs still shown ≈ 0; median job age low | Self-cleaning feed — no dead listings. | 3→6 |
-| 10 | **Visa-signal trustworthiness** | sponsorship/CSOL precision & recall vs spot-checks | The differentiator only matters if you can trust it. | 3 |
-| 11 | **Automation** | runs on schedule with **0 manual steps** | Works while you sleep. | 6 |
-
-**Earliest, highest-leverage three:** #1 normalization, #2 idempotency, #4 breakage detection — nail these in Phase 1.
-
-> Note: *personal job-hunt funnel* metrics (applications → interviews → offers) are out of scope here and
-> stay **private** (Notion / `private/`), never in this public repo.
+Personal job-hunt numbers, such as applications sent, interviews, and offers, are private.
+They are kept in Notion and the `private/` folder, never in this public repository.
