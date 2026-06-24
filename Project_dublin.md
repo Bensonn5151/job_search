@@ -44,9 +44,11 @@ Because this project runs in the EU and handles job postings, a few rules matter
 We gather jobs from several kinds of sources. We favour sources that are dependable and
 likely to lead to a visa-sponsored role, rather than trying to cover everything.
 
-**Official job APIs.** These are clean, documented, and stable, so we start here. The main
-one is Adzuna, which covers Ireland well and has a free tier. Others include Jooble,
-Careerjet, Reed, and The Muse.
+**Official job APIs and aggregators.** These are documented and relatively stable, so we
+start here. We use Jooble and Careerjet, which both cover Ireland and offer a free tier.
+Adzuna is a common choice elsewhere, but it has no Ireland endpoint and cannot search
+Dublin, so we do not use it. Reed is mainly British and The Muse lists only a curated set of
+companies, so both give weak Irish coverage.
 
 **Public and semi-state employers.** Ireland's public sector is a large employer in Dublin,
 but it splits into two very different groups for our purpose. Universities such as Trinity

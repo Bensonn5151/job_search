@@ -30,7 +30,7 @@ python -m dublin_jobs.db.migrate
 ## Status
 
 - [x] **Phase 0** — Foundations: repo layout, venv, secrets hygiene
-- [ ] **Phase 1** — Tier 1 APIs: Adzuna → normalize → Postgres
+- [ ] **Phase 1** — Job APIs (Jooble, Careerjet): fetch, normalize, store in Postgres
 - [ ] **Phase 2** — Tier 2 ATS feeds + dedup
 - [ ] **Phase 3** — AI enrichment (extraction, embeddings, visa cascade)
 - [ ] **Phase 4** — Tier 3 Irish boards (HTML)

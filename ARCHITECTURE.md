@@ -21,7 +21,7 @@ A **scheduled batch ETL pipeline with a pluggable source layer.** That framing d
                        │                                     │
   SOURCES — pluggable connectors, one class per source (Tiers 1→4)
   ┌──────────┬────────────┬───────────┬──────────────┐      │
-  │ Adzuna   │ Greenhouse │ IrishJobs │ Playwright    │      │
+  │ Jooble   │ Greenhouse │ IrishJobs │ Playwright    │      │
   │ (API)    │ Lever(JSON)│ (HTML)    │ (dynamic)     │      │
   └────┬─────┴─────┬──────┴────┬──────┴──────┬────────┘      │
        │ fetch     │           │             │               ▼
@@ -116,7 +116,7 @@ enrich_deltas()                     # only new/changed rows → cheap
 | Phase | What it adds |
 |---|---|
 | 0 | skeleton + Postgres box |
-| 1 | orchestrator + first connector (Adzuna) + `jobs` table + upsert |
+| 1 | orchestrator + first connector (Jooble) + `jobs` table + upsert |
 | 2 | more connectors + Dedup block |
 | 3 | Enrichment block + pgvector + `gold_feed` view |
 | 4–5 | more connectors (HTML, Playwright) — *zero orchestrator change* |

@@ -16,13 +16,14 @@ This phase is complete: the project installs cleanly and the jobs table exists l
 
 ## Phase 1 — Official job APIs (in progress)
 
-Pull real Dublin jobs from official, well-documented APIs, beginning with Adzuna, and save
-each job into the database in one consistent format.
+Pull real Dublin jobs from job-search APIs that cover Ireland, starting with Jooble and then
+Careerjet, and save each job into the database in one consistent format.
 
-- [ ] Get an Adzuna API key and make the first authenticated request
+- [ ] Get a Jooble API key and make the first authenticated request
 - [ ] Page through the results and respect the API's rate limits
 - [ ] Describe the API response as typed models, so bad data is caught early
 - [ ] Convert each job into our standard format and save it without creating duplicates
+- [ ] Add Careerjet as a second source behind the same interface
 
 What you learn: how REST APIs work, authentication, paging, rate limits, data validation,
 and the step that turns many different formats into one. That conversion step is the core of

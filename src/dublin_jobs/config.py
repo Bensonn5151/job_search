@@ -7,9 +7,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str
-    adzuna_app_id: str = ""
-    adzuna_app_key: str = ""
-    adzuna_country: str = "ie"
+    jooble_api_key: str = ""
+    careerjet_affiliate_id: str = ""
     job_location: str = "Dublin"
 
 
