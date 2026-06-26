@@ -29,10 +29,10 @@ python -m dublin_jobs.db.migrate
 
 ## Status
 
-- [x] **Phase 0** — Foundations: repo layout, venv, secrets hygiene
-- [ ] **Phase 1** — Job APIs (Jooble, Careerjet): fetch, normalize, store in Postgres
-- [ ] **Phase 2** — Tier 2 ATS feeds + dedup
-- [ ] **Phase 3** — AI enrichment (extraction, embeddings, visa cascade)
-- [ ] **Phase 4** — Tier 3 Irish boards (HTML)
-- [ ] **Phase 5** — Tier 4 dynamic sites (Playwright)
-- [ ] **Phase 6** — Automation + UI
+- [x] **Phase 0** — Foundations: repository, environment, database
+- [ ] **Phase 1** — Job APIs (Jooble, Careerjet): fetch, normalize, store
+- [ ] **Phase 2** — Company hiring systems and duplicate removal
+- [ ] **Phase 3** — AI enrichment and the visa filter
+- [ ] **Phase 4** — Irish job boards and public-sector roles
+- [ ] **Phase 5** — Sites that need a real browser
+- [ ] **Phase 6** — Automation and a simple interface

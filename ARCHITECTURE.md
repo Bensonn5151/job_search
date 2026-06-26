@@ -1,7 +1,7 @@
 # Project Dublin — Architecture
 
-How the system fits together. Design rationale & KPIs live in [Project_dublin.md](Project_dublin.md);
-phase-by-phase build order in [PHASES.md](PHASES.md).
+How the system fits together. The full design and reasoning are in [Project_dublin.md](Project_dublin.md);
+the build order is in [PHASES.md](PHASES.md).
 
 ## 1. What kind of system this is
 
@@ -42,7 +42,7 @@ A **scheduled batch ETL pipeline with a pluggable source layer.** That framing d
          ▼                                             ▼
   ┌───────────────────────────┐              ┌──────────────────────┐
   │ ENRICHMENT (deltas only)  │              │ SERVE                 │
-  │ L1 rules→L2 Haiku→L3 clf  │              │ Streamlit + SQL       │
+  │ rules, then a cheap AI    │              │ Streamlit + SQL       │
   │ +embeddings; writes back  │              │ filters / gold feed   │
   └───────────────────────────┘              └──────────────────────┘
 
@@ -51,19 +51,19 @@ A **scheduled batch ETL pipeline with a pluggable source layer.** That framing d
 
 ## 3. Component responsibilities
 
-| Component | One-job responsibility | Tech | KPI |
-|---|---|---|---|
-| **Source connectors** | Know *one* source; expose `fetch/parse/normalize` | httpx · BeautifulSoup · Playwright | #5, #8 |
-| **Orchestrator** | Run each source through the pipeline; fail-soft per source | Python CLI | #2, #4 |
-| **Validator** | Reject/flag schema drift loudly | Pydantic | #1, #4 |
-| **Normalizer** | Map source shape → canonical `Job` | Python mapping fns | #1 |
-| **Store** | Idempotent upsert; system of record | Postgres + psycopg | #2 |
-| **Dedup** | Collapse same job across sources | SQL key → pgvector | #3 |
-| **Enrichment** | Visa cascade + embeddings, deltas only | Claude Haiku + embeddings | #7, #10 |
-| **Freshness** | Age out filled/expired posts | SQL + recheck | #9 |
-| **Serve** | Query + filter the gold feed | Streamlit + SQL views | — |
-| **Orchestration** | Schedule + run unattended | GitHub Actions | #11 |
-| **Observability** | Per-run counts + breakage alerts | logging + summary | #4 |
+| Component | Responsibility | Tools |
+|---|---|---|
+| **Source connectors** | Know one source; provide fetch, parse, and normalize | httpx, BeautifulSoup, Playwright |
+| **Orchestrator** | Run each source through the pipeline; keep going if one source fails | Python command-line program |
+| **Validator** | Reject or flag malformed data loudly | Pydantic |
+| **Normalizer** | Convert each source's shape into the one standard job format | plain Python functions |
+| **Store** | Save jobs without duplicates; the system of record | Postgres with psycopg |
+| **Dedup** | Combine the same job found on different sources | SQL matching, then pgvector |
+| **Enrichment** | Add the visa signal and embeddings, only for new or changed jobs | Claude Haiku and an embedding model |
+| **Freshness** | Remove filled or expired jobs | SQL and link re-checks |
+| **Serve** | Search and filter the results | Streamlit and SQL views |
+| **Scheduling** | Run the whole pipeline unattended | GitHub Actions |
+| **Monitoring** | Per-run counts and breakage alerts | logging and a run summary |
 
 ## 4. The core abstraction — the `Source` contract
 
@@ -77,8 +77,9 @@ class Source(Protocol):
     def normalize(self, sj: SourceJob) -> Job: ...                    # → the ONE canonical schema
 ```
 
-Payoffs: **adding a source = one class + a config line** (orchestrator unchanged, KPI #8); **breakage is isolated** —
-a broken `parse()` fails only that source, the orchestrator logs it and continues (KPI #4, #5).
+Two payoffs. Adding a source means writing one class and adding a line of configuration; the
+orchestrator does not change. And breakage stays contained: a broken `parse()` fails only its
+own source, while the orchestrator records the failure and carries on with the rest.
 
 ## 5. A single run — the control loop
 
@@ -107,7 +108,7 @@ enrich_deltas()                     # only new/changed rows → cheap
 | Transform style | **Store raw, then normalize (ELT)** | extra storage | re-normalize w/o re-fetch; survives schema drift |
 | Source coupling | **Uniform `Source` interface** | upfront abstraction | effortless extension + isolated breakage |
 | Idempotency | **Upsert on `(source, source_job_id)`** | — | re-runnable; core effortlessness property |
-| Enrichment placement | **Decoupled stage, deltas-only** | not "live" | keeps LLM cost + runtime flat (KPI #7) |
+| Enrichment placement | **Separate step, only new or changed jobs** | not "live" | keeps AI cost and run time flat |
 | Storage | **One Postgres (+pgvector)** | not best-of-breed each | relational + vectors in one store; no extra infra |
 | Failure policy | **Fail-soft per source, fail-loud per record** | — | resilience + observability together |
 
