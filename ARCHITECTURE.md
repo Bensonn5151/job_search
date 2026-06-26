@@ -41,7 +41,7 @@ A **scheduled batch ETL pipeline with a pluggable source layer.** That framing d
          │ reads un-enriched / changed                 │ reads
          ▼                                             ▼
   ┌───────────────────────────┐              ┌──────────────────────┐
-  │ ENRICHMENT (deltas only)  │              │ SERVE                 │
+  │ ENRICHMENT (new/changed)  │              │ SERVE                 │
   │ rules, then a cheap AI    │              │ Streamlit + SQL       │
   │ +embeddings; writes back  │              │ filters / gold feed   │
   └───────────────────────────┘              └──────────────────────┘
