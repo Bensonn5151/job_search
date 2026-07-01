@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     database_url: str
     jooble_api_key: str = ""
     careerjet_affiliate_id: str = ""
-    job_location: str = "Dublin"
+    job_location: str = "Dublin, Ireland"
 
 
 settings = Settings()
