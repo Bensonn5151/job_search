@@ -9,12 +9,17 @@ This module only fetches. It returns Jooble's raw job dictionaries untouched;
 turning them into our standard format happens later, in a separate step.
 """
 
+import logging
 import time
 from collections.abc import Iterator
 
 import httpx
+from pydantic import ValidationError
 
 from dublin_jobs.config import settings
+from dublin_jobs.sources.models import JoobleJob
+
+log = logging.getLogger(__name__)
 
 # Jooble returns at most 30 jobs per page.
 PAGE_SIZE = 30
@@ -57,3 +62,20 @@ def fetch_jobs(
 
             # Be polite: pause before asking for the next page.
             time.sleep(DELAY_BETWEEN_PAGES)
+
+
+def iter_jobs(
+    keywords: str,
+    location: str | None = None,
+    max_pages: int = 20,
+) -> Iterator[JoobleJob]:
+    """Yield validated JoobleJob objects for a search.
+
+    Wraps fetch_jobs and validates each raw record. A job that fails validation
+    is logged and skipped, so one bad record never stops the whole run.
+    """
+    for raw in fetch_jobs(keywords, location, max_pages):
+        try:
+            yield JoobleJob.model_validate(raw)
+        except ValidationError as error:
+            log.warning("skipping malformed Jooble job %s: %s", raw.get("id"), error)

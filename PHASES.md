@@ -21,7 +21,7 @@ Careerjet, and save each job into the database in one consistent format.
 
 - [x] Get a Jooble API key and make the first authenticated request
 - [x] Page through the results and respect the API's rate limits
-- [ ] Describe the API response as typed models, so bad data is caught early
+- [x] Describe the API response as typed models, so bad data is caught early
 - [ ] Convert each job into our standard format and save it without creating duplicates
 - [ ] Add Careerjet as a second source behind the same interface
 
