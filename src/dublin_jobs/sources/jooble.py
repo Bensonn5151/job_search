@@ -17,6 +17,7 @@ import httpx
 from pydantic import ValidationError
 
 from dublin_jobs.config import settings
+from dublin_jobs.job import Job
 from dublin_jobs.sources.models import JoobleJob
 
 log = logging.getLogger(__name__)
@@ -79,3 +80,23 @@ def iter_jobs(
             yield JoobleJob.model_validate(raw)
         except ValidationError as error:
             log.warning("skipping malformed Jooble job %s: %s", raw.get("id"), error)
+
+
+def to_job(job: JoobleJob) -> Job:
+    """Rewrite a Jooble job into the project's standard Job shape.
+
+    Jooble's own 'source' field names the site the advert came from, so it is not
+    used here; our source is simply 'jooble'. Jooble's numeric id becomes the
+    source_job_id, and the whole Jooble record is kept in raw.
+    """
+    return Job(
+        source="jooble",
+        source_job_id=str(job.id),
+        title=job.title,
+        url=job.link,
+        company=job.company,
+        location=job.location,
+        description=job.snippet,
+        posted_date=job.updated.date(),
+        raw=job.model_dump(mode="json"),
+    )
