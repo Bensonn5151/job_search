@@ -30,7 +30,9 @@ python -m dublin_jobs.db.migrate
 ## Status
 
 - [x] **Phase 0** — Foundations: repository, environment, database
-- [ ] **Phase 1** — Job APIs (Jooble, Careerjet): fetch, normalize, store
+- [ ] **Phase 1** — Job APIs: fetch, normalize, store
+  - [x] Jooble — paging, typed models, normalize, upsert
+  - [ ] Careerjet — second source behind the same interface
 - [ ] **Phase 2** — Company hiring systems and duplicate removal
 - [ ] **Phase 3** — AI enrichment and the visa filter
 - [ ] **Phase 4** — Irish job boards and public-sector roles
